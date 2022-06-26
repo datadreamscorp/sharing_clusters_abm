@@ -23,13 +23,13 @@ end
 	    :B => collect(5.0:5:40.0),
 		:C => collect(0.05:0.05:0.4),
 	    :max_N => collect(20:10:100),
-		:α_risk => 1:500:2001,
+		:α_risk => collect(1.0:500.0:2001.0),
 	)
-	
+
 
 	mdata = [
-		:current_n, 
-		:current_N, 
+		:current_n,
+		:current_N,
 		:max_cluster_size,
 		#(:mean_sharing, last),
 		#(:median_sharing, last),
