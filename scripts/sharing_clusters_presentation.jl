@@ -4,269 +4,81 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 9a26ccb8-ecb6-11ec-387d-2d2f24a4f5eb
+# ╔═╡ fc4dd99c-148c-460d-bc82-0fa3e6ac2233
 using Agents, Random, Distributions, Statistics, StatsBase, Plots
 
-# ╔═╡ 02d3a34f-7aa1-4a73-b675-606969f1f282
-"""
-Cluster agent class
-"""
-mutable struct Cluster <: AbstractAgent
-	id::Int64
-	size::Int64
-	s::Float64 #sharing norm of cluster
-	total_fitness::Float64
-	average_fitness::Float64
-	ϕ::Float64 #probability of receiving new member
-	τ::Float64 #probability of losing a member (if whole pop is in the clusters)
-	#fission_prob::Float64
+# ╔═╡ 54c9ffba-f2cd-11ec-2c9a-c9504a86419f
+module sh
+include("./sharing_clusters_evolutionary.jl")
 end
 
-# ╔═╡ f99fd667-3721-4580-9ac1-dd758de66493
-function sharing_groups_model(;
-	N::Int64 = 20, #number of sharing clusters
-	max_N::Int64 = 50, #max number of sharing clusters
-	n::Int64 = 200, #population size
-	r::Int64 = 1, #number of agents that join/abandon clusters
-	T::Int64 = 20, #number of sub-periods in productive period
-	init_size::Int64 = 10, #initial max size of clusters (binomial distribution)
-	init_size_prob::Float64 = 0.5, #probability of cluster size
-	B::Float64 = 20.0, #mean of surplus distribution (lognormal)
-	B_var::Float64 = 0.0001, #variance of surplus distribution
-	C::Float64 = 0.2, #mean of cost distribution (lognormal)
-	C_var::Float64 = 0.0001, #variance of cost distribution
-	α_risk::Float64 = 1001.0, #alpha (# of successes - 1) for risk distribution
-	β_risk::Float64 = 1001.0, #beta (# of failures - 1) for risk distribution
-	δ::Float64 = 0.1, #strength of selection
-	γ::Float64 = 10.0, #steepness of sigmoid for fission probability
-	σ_small::Float64 = 0.01, #variance of inherited sharing norm after fission
-	σ_large::Float64 = 0.1, #prob of large mutation in sharing norm after fission
+# ╔═╡ 7379e1fc-7c72-4f27-8e9a-38d0cc901f88
+model = sh.sharing_groups_model(;
+	max_N=100,
+	n=500,
+	B=20.0,
+	C=0.2,
+	α_risk=1001.0,
+)
+
+# ╔═╡ 913a8783-8fd1-455c-8c06-a93b7c46dffb
+histogram( 
+	[a.s for a in allagents(model)],
+	bins = 0:0.01:1, xlabel="sharing norm", legend=false 
+)
+
+# ╔═╡ 61ea8190-a2ef-4851-a797-b66760f78913
+histogram( 
+	[a.size for a in allagents(model)],
+	xlabel="cluster size", 
+	legend=false,
+	color="dark red"
+)
+
+# ╔═╡ 5ad4d134-dfa7-45b7-95c8-0d20588c4e6e
+step!(model, dummystep, sh.sharing_step!, 10000)
+
+# ╔═╡ e432ccbc-8bcb-4212-8a7e-88e6414ad109
+begin
+	sharings = [a.s for a in allagents(model)]
+	histogram( sharings, bins = 0:0.01:1, xlabel="sharing norm", legend=false )
+end
+
+# ╔═╡ 4f618f31-5cbd-4efa-8855-63d87497db4e
+plot( model.mean_sharing, xlabel="time", ylabel="mean sharing norm", legend=false )
+
+# ╔═╡ 67b1a661-ff9d-4e41-8701-e10aac9c1e76
+begin
+	sizes = [a.size for a in allagents(model)]
+	histogram( 
+		sizes, 
+		bins=0:1:maximum(sizes)+1, 
+		xlabel="cluster size", 
+		legend=false,
+		color="dark red"
 	)
-
-	model = ABM(
-		Cluster,
-		nothing,
-		properties = Dict(
-			:N => N,
-			:max_N => max_N,
-			:r => r,
-			:T => T,
-			:B => LogNormal(log(B), B_var),
-			:C => LogNormal(log(C), C_var),
-			:size_dist => Binomial(init_size, init_size_prob),
-			:share_dist => Beta(1, 1),
-			:risk => Beta(α_risk, β_risk),
-			:δ => δ,
-			:γ => γ,
-			:σ_small => σ_small,
-			:σ_large => σ_large,
-			:n => n,
-			:current_n => 0,
-			:current_N => N,
-			:mean_sharing => Float64[], #containers for pop-level data
-			:num_clusters => Int64[],
-			:mean_cluster_size => Float64[],
-			:loner_fitness => (1+δ)^(T*( α_risk/(α_risk + β_risk) )*log(B)),
-		),
-		rng = RandomDevice(),
-	)
-	
-	for a in 1:N #add initial agents
-		add_agent!(
-			model,
-			rand(model.rng, model.size_dist),
-			rand(model.rng, model.share_dist),
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-		)
-	end
-
-	model.current_n = sum([a.size for a in allagents(model)])
-	
-	return model
-	
 end
 
-# ╔═╡ b8e082ae-c735-4449-87c9-28ec88191f76
-function generate_fitness!(model)
-	
-	for a in allagents(model) #iterate through all agents
+# ╔═╡ 6fc36335-1948-4f66-89d2-845d0bd56361
+plot( 
+	model.mean_cluster_size, 
+	color="dark red",
+	xlabel="time",
+	ylabel="mean cluster size",
+	legend=false
+)
 
-		log_payoffs = zeros(a.size) #calculate payoffs on log scale for convenience
-		
-		for t in 1:model.T #iterate through every sub-period of productive period
+# ╔═╡ 02b17179-ec04-4549-900b-549753fe4a48
+sum(sizes)
 
-			pool = 0
-			members = Float64[]
-			#calculate individual and pooled payoff for sub-period:
-			for member in 1:(a.size) #iterate through every member of pool
-				u = rand(model.rng, model.risk)
-				B = rand(model.rng, model.B)
-				C = rand(model.rng, model.C)
-				toss = ( rand(model.rng) < u )
-				pool += toss ? a.s*B : 0
-				netcost = (a.size - 1)*C
-				member_payoff = toss ? (1 - a.s) * B - netcost : 1.0 - netcost
-				push!(members, member_payoff)
-			end
+# ╔═╡ 08a734b9-6db6-414c-9801-5661466ebe57
+model.current_N
 
-			share = pool / a.size #give a share of resource to all members
-			full_member_payoffs = clamp.(share.+members, 1, 1000)
-			
-			#calculate the average log growth rate
-			log_payoffs += log.(full_member_payoffs)
+# ╔═╡ cd9dedcb-049d-4432-9d11-8166390520a9
+cor(sizes, sharings)
 
-		end
-		#calculate fitness
-		a.total_fitness = sum( (1 + model.δ).^log_payoffs )
-		a.average_fitness = a.total_fitness / a.size
-		
-	end
-	
-end
-
-# ╔═╡ aed2940f-7fc1-4e1d-b916-82f4bbad555c
-function growth!(model)
-
-	#fissfunc(fitness) = 1 / ( 1 + exp( -model.γ * (fitness - model.loner_fitness) ) )
-	
-	pop_fitness = sum( [a.total_fitness for a in allagents(model)] )
-	#pop_fission = sum( [fissfunc(a.average_fitness) for a in allagents(model)] )
-	
-	for a in allagents(model)
-		a.ϕ = a.total_fitness / pop_fitness
-		a.τ = -(a.ϕ - 1.0)
-		#a.fission_prob = fissfunc(a.average_fitness) / pop_fission
-	end
-
-	recruiter = sample(
-		model.rng, 
-		allagents(model) |> collect, 
-		Weights( [a.ϕ for a in allagents(model)] )
-	)
-	
-	if model.current_n < model.n
-
-		recruiter.size += model.r
-		model.current_n += model.r
-		#rand(model.rng, Binomial(model.n, model.n_prob))
-		
-	else
-		
-		loser = sample(
-			model.rng, 
-			allagents(model) |> collect, 
-			Weights( [a.τ for a in allagents(model)] )
-		)
-
-		loser.size -= model.r
-		loser_size = loser.size
-
-		recruiter.size += model.r
-		
-		if loser_size < 1
-			
-			kill_agent!(loser, model)
-			model.current_N -= 1
-			
-		end
-		
-	end
-	
-end
-		
-
-# ╔═╡ 4f39ca71-ae53-41f9-b067-40542b1467cd
-function death_and_fission!(model)
-
-	# we want to count how many groups fissioned
-	# and then remove that amount of agents at random
-
-	#we do not consider for reproduction or fission those groups that have fitness
-	#below that of a loner and group size at or below 1
-	
-	fission_candidates = []
-	for a in allagents(model)
-		if (a.average_fitness ≤ model.loner_fitness) & (a.size > 2)
-			push!(fission_candidates, a)
-		end
-	end
-			
-	if length(fission_candidates) > 0
-		
-		fissioned = rand(model.rng, fission_candidates)
-	
-		inh_sharing = clamp( rand(model.rng, Normal(fissioned.s, model.σ_small)), 0.0, 1.0 )
-		
-		mutated_sharing = rand(model.rng)
-		
-		new_size = floor( rand(model.rng) * fissioned.size )
-		if new_size > 0
-
-			fissioned.size -= new_size
-			
-			add_agent!(
-				model,
-				new_size,
-				rand(model.rng) < model.σ_large ? mutated_sharing : inh_sharing,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-			)
-
-			model.current_N += 1
-			
-			if model.current_N > model.max_N
-				
-				dead = sample(
-					model.rng,
-					allagents(model) |> collect, 
-					Weights( [-(a.ϕ - 1.0) for a in allagents(model)] )
-				)
-
-				model.current_n -= dead.size
-
-				model.current_N -= 1
-				
-				kill_agent!(dead, model)
-
-			end
-			
-		end
-
-	end
-	
-end
-	
-
-# ╔═╡ 8a93acfd-5519-4b80-86cc-0183f996efeb
-function model_step!(model, T)
-
-	for t in 1:T
-		generate_fitness!(model)
-		growth!(model)
-		death_and_fission!(model)
-		mean_sharing = median( [a.s for a in allagents(model)] )
-		mean_size = mean( [a.size for a in allagents(model)] )
-		push!(model.mean_sharing, mean_sharing)
-		push!(model.mean_cluster_size, mean_size)
-	end
-	
-end
-
-# ╔═╡ 93a4cbd4-8154-4c25-9b69-82252acbdbcf
-function sharing_step!(model)
-	generate_fitness!(model)
-	growth!(model)
-	death_and_fission!(model)
-	mean_sharing = median( [a.s for a in allagents(model)] )
-	mean_size = mean( [a.size for a in allagents(model)] )
-	push!(model.mean_sharing, mean_sharing)
-	push!(model.mean_cluster_size, mean_size)
-end
+# ╔═╡ 5c947f24-4527-4779-b18a-ea5e6e4883c6
+run!(model, dummystep, sh.sharing_step!, 100; mdata=[:current_N])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -281,8 +93,8 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 [compat]
 Agents = "~5.3.0"
 Distributions = "~0.25.62"
-Plots = "~1.30.1"
-StatsBase = "~0.33.16"
+Plots = "~1.30.2"
+StatsBase = "~0.33.17"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -591,9 +403,9 @@ version = "1.3.14+0"
 
 [[Graphs]]
 deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
-git-tree-sha1 = "4888af84657011a65afc7a564918d281612f983a"
+git-tree-sha1 = "db5c7e27c0d46fd824d470a3c32a4fc6c935fa96"
 uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
-version = "1.7.0"
+version = "1.7.1"
 
 [[Grisu]]
 git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
@@ -911,9 +723,9 @@ version = "8.44.0+0"
 
 [[PDMats]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "3e32c8dbbbe1159a5057c80b8a463369a78dd8d8"
+git-tree-sha1 = "7f4869861f8dac4990d6808b66b57e5a425cfd99"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.12"
+version = "0.11.13"
 
 [[Parameters]]
 deps = ["OrderedCollections", "UnPack"]
@@ -951,9 +763,9 @@ version = "1.2.0"
 
 [[Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "2402dffcbc5bb1631fb4f10cb5c3698acdce29ea"
+git-tree-sha1 = "d0a61518267b44a70427c0b690b5e993a4f5fe01"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.30.1"
+version = "1.30.2"
 
 [[PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1126,9 +938,9 @@ version = "1.4.0"
 
 [[StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "8977b17906b0a1cc74ab2e3a05faa16cf08a8291"
+git-tree-sha1 = "642f08bf9ff9e39ccc7b710b2eb9a24971b52b1a"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.33.16"
+version = "0.33.17"
 
 [[StatsFuns]]
 deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
@@ -1428,13 +1240,19 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╠═9a26ccb8-ecb6-11ec-387d-2d2f24a4f5eb
-# ╠═02d3a34f-7aa1-4a73-b675-606969f1f282
-# ╠═f99fd667-3721-4580-9ac1-dd758de66493
-# ╠═b8e082ae-c735-4449-87c9-28ec88191f76
-# ╠═aed2940f-7fc1-4e1d-b916-82f4bbad555c
-# ╠═4f39ca71-ae53-41f9-b067-40542b1467cd
-# ╠═8a93acfd-5519-4b80-86cc-0183f996efeb
-# ╠═93a4cbd4-8154-4c25-9b69-82252acbdbcf
+# ╠═54c9ffba-f2cd-11ec-2c9a-c9504a86419f
+# ╠═fc4dd99c-148c-460d-bc82-0fa3e6ac2233
+# ╠═7379e1fc-7c72-4f27-8e9a-38d0cc901f88
+# ╠═913a8783-8fd1-455c-8c06-a93b7c46dffb
+# ╠═61ea8190-a2ef-4851-a797-b66760f78913
+# ╠═5ad4d134-dfa7-45b7-95c8-0d20588c4e6e
+# ╟─e432ccbc-8bcb-4212-8a7e-88e6414ad109
+# ╟─4f618f31-5cbd-4efa-8855-63d87497db4e
+# ╟─67b1a661-ff9d-4e41-8701-e10aac9c1e76
+# ╟─6fc36335-1948-4f66-89d2-845d0bd56361
+# ╠═02b17179-ec04-4549-900b-549753fe4a48
+# ╠═08a734b9-6db6-414c-9801-5661466ebe57
+# ╠═cd9dedcb-049d-4432-9d11-8166390520a9
+# ╠═5c947f24-4527-4779-b18a-ea5e6e4883c6
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
