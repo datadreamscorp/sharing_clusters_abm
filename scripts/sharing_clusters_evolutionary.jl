@@ -41,6 +41,7 @@ function sharing_groups_model(;
 	γ::Float64 = 10.0, #steepness of sigmoid for fission probability
 	σ_small::Float64 = 0.01, #variance of inherited sharing norm after fission
 	σ_large::Float64 = 0.1, #prob of large mutation in sharing norm after fission
+	rep::Int64 = 1, #replicate number (paramscan only)
 	)
 
 	model = ABM(
@@ -75,6 +76,7 @@ function sharing_groups_model(;
 			:median_cluster_size_vector => Float64[],
 			:loner_fitness => (1+δ)^(T*( α_risk/(α_risk + β_risk) )*log(B)),
 			:tick => 0,
+			:rep => rep,
 		),
 		rng = RandomDevice(),
 	)
