@@ -25,7 +25,7 @@ end
 # ╔═╡ f99fd667-3721-4580-9ac1-dd758de66493
 function sharing_groups_model(;
 	N::Int64 = 20, #number of sharing clusters
-	max_N::Int64 = 50, #max number of sharing clusters
+	max_N::Int64 = 100, #max number of sharing clusters
 	n::Int64 = 200, #population size
 	r::Int64 = 1, #number of agents that join/abandon clusters
 	T::Int64 = 20, #number of sub-periods in productive period
@@ -64,12 +64,17 @@ function sharing_groups_model(;
 			:current_n => 0,
 			:current_N => N,
 			:max_cluster_size => 0,
-			:mean_sharing => Float64[], #containers for pop-level data
-			:median_sharing => Float64[],
-			:num_clusters => Int64[],
-			:mean_cluster_size => Float64[],
-			:median_cluster_size => Float64[],
+			:mean_sharing => 0.0,
+			:median_sharing => 0.0,
+			:mean_cluster_size => 0.0,
+			:median_cluster_size => 0.0,
+			:mean_sharing_vector => Float64[], #containers for pop-level data
+			:median_sharing_vector => Float64[],
+			:num_clusters_vector => Int64[],
+			:mean_cluster_size_vector => Float64[],
+			:median_cluster_size_vector => Float64[],
 			:loner_fitness => (1+δ)^(T*( α_risk/(α_risk + β_risk) )*log(B)),
+			:tick => 0,
 		),
 		rng = RandomDevice(),
 	)
@@ -252,37 +257,22 @@ function sharing_step!(model)
 	death_and_fission!(model)
 
 	sharings = [a.s for a in allagents(model)]
-	mean_sharing = mean(sharings)
-	median_sharing = median(sharings)
+	model.mean_sharing = mean(sharings)
+	model.median_sharing = median(sharings)
 
 	sizes = [a.size for a in allagents(model)]
-	mean_size = mean(sizes)
-	median_size = median(sizes)
+	model.mean_cluster_size = mean(sizes)
+	model.median_cluster_size = median(sizes)
 	model.max_cluster_size = maximum(sizes)
 	
-	push!(model.mean_sharing, mean_sharing)
-	push!(model.median_sharing, median_sharing)
-	push!(model.mean_cluster_size, mean_size)
-	push!(model.median_cluster_size, median_size)
-	push!(model.num_clusters, model.current_N)
-end
+	push!(model.mean_sharing_vector, model.mean_sharing)
+	push!(model.median_sharing_vector, model.median_sharing)
+	push!(model.mean_cluster_size_vector, model.mean_cluster_size)
+	push!(model.median_cluster_size_vector, model.median_cluster_size)
+	push!(model.num_clusters_vector, model.current_N)
 
-# ╔═╡ 8a93acfd-5519-4b80-86cc-0183f996efeb
-"""
-function model_step!(model, T)
-
-	for t in 1:T
-		generate_fitness!(model)
-		growth!(model)
-		death_and_fission!(model)
-		mean_sharing = median( [a.s for a in allagents(model)] )
-		mean_size = mean( [a.size for a in allagents(model)] )
-		push!(model.mean_sharing, mean_sharing)
-		push!(model.mean_cluster_size, mean_size)
-	end
-	
+	model.tick += 1
 end
-"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -921,6 +911,5 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═aed2940f-7fc1-4e1d-b916-82f4bbad555c
 # ╠═4f39ca71-ae53-41f9-b067-40542b1467cd
 # ╠═93a4cbd4-8154-4c25-9b69-82252acbdbcf
-# ╠═8a93acfd-5519-4b80-86cc-0183f996efeb
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
