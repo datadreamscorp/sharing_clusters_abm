@@ -19,9 +19,8 @@ end
 	parameters = Dict( #ALTER THIS DICTIONARY TO DEFINE PARAMETER DISTRIBUTIONS
 	    :B => collect(5.0:5:40.0),
 		:C => collect(0.05:0.05:0.4),
-	    #:max_N => collect(20:10:100),
-		:α_risk => [1.0, 501.0, 1001.0, 2001.0, 10000.0],
-		:β_risk => [1001.0],
+		:n => [100, 500, 1000],
+		:u => collect(0.01:0.01:0.99)
 		:rep => collect(1:5),
 	)
 
@@ -45,9 +44,9 @@ _, mdf = paramscan(
             mdata=mdata,
             agent_step! = dummystep,
         	model_step! = sharing_step!,
-            n = 5000,
+            n = 10000,
 			parallel=true,
-			when_model = [5000]
+			when_model = collect(0:1000:10000)
 	)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001

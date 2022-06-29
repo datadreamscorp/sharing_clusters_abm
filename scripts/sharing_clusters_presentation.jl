@@ -7,6 +7,9 @@ using InteractiveUtils
 # ╔═╡ fc4dd99c-148c-460d-bc82-0fa3e6ac2233
 using Agents, Random, Distributions, Statistics, StatsBase, Plots
 
+# ╔═╡ de16d201-9312-483c-bd19-4a452a5fc7b2
+using CSV, DataFrames
+
 # ╔═╡ 54c9ffba-f2cd-11ec-2c9a-c9504a86419f
 module sh
 include("./sharing_clusters_evolutionary.jl")
@@ -14,11 +17,11 @@ end
 
 # ╔═╡ 7379e1fc-7c72-4f27-8e9a-38d0cc901f88
 model = sh.sharing_groups_model(;
-	max_N=100,
+	max_N=500,
 	n=500,
 	B=20.0,
 	C=0.2,
-	α_risk=1001.0,
+	u=0.5,
 )
 
 # ╔═╡ 913a8783-8fd1-455c-8c06-a93b7c46dffb
@@ -45,7 +48,7 @@ begin
 end
 
 # ╔═╡ 4f618f31-5cbd-4efa-8855-63d87497db4e
-plot( model.mean_sharing, xlabel="time", ylabel="mean sharing norm", legend=false )
+plot( model.mean_sharing_vector, xlabel="time", ylabel="mean sharing norm", legend=false )
 
 # ╔═╡ 67b1a661-ff9d-4e41-8701-e10aac9c1e76
 begin
@@ -61,7 +64,7 @@ end
 
 # ╔═╡ 6fc36335-1948-4f66-89d2-845d0bd56361
 plot( 
-	model.mean_cluster_size, 
+	model.mean_cluster_size_vector, 
 	color="dark red",
 	xlabel="time",
 	ylabel="mean cluster size",
@@ -77,13 +80,31 @@ model.current_N
 # ╔═╡ cd9dedcb-049d-4432-9d11-8166390520a9
 cor(sizes, sharings)
 
-# ╔═╡ 5c947f24-4527-4779-b18a-ea5e6e4883c6
-run!(model, dummystep, sh.sharing_step!, 100; mdata=[:current_N])
+# ╔═╡ 55ebb4e7-a57a-4d1d-b3cc-22ecd6fda755
+begin
+	mdf = DataFrame( CSV.File("./test_df02.csv") )
+	
+	mdf2 = hcat(mdf, DataFrame( u = mdf[!,:α_risk] ./ ( mdf[!,:α_risk] + mdf[!,:β_risk] ) ) )
+	
+	mdf_filtered = mdf2[(mdf2.B .== 20.0), :]
+	mdf_filtered = mdf_filtered[(mdf_filtered.C .== 0.2), :]
+	grouped_mdf = groupby(mdf_filtered, :u)
+	mean_max_size = combine(grouped_mdf, :max_cluster_size => mean)
+	
+	scatter(mdf_filtered.u, mdf_filtered.max_cluster_size, 
+		legend=false, alpha=0.2,
+		xlabel = "surplus security (u)",
+		ylabel = "maximum cluster size at t = 5000"
+	)
+	plot!(mean_max_size.u, mean_max_size.max_cluster_size_mean, lw=2)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Agents = "46ada45e-f475-11e8-01d0-f70cc89e6671"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -92,6 +113,8 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 Agents = "~5.3.0"
+CSV = "~0.10.4"
+DataFrames = "~1.3.4"
 Distributions = "~0.25.62"
 Plots = "~1.30.2"
 StatsBase = "~0.33.17"
@@ -1253,6 +1276,7 @@ version = "0.9.1+5"
 # ╠═02b17179-ec04-4549-900b-549753fe4a48
 # ╠═08a734b9-6db6-414c-9801-5661466ebe57
 # ╠═cd9dedcb-049d-4432-9d11-8166390520a9
-# ╠═5c947f24-4527-4779-b18a-ea5e6e4883c6
+# ╠═de16d201-9312-483c-bd19-4a452a5fc7b2
+# ╟─55ebb4e7-a57a-4d1d-b3cc-22ecd6fda755
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

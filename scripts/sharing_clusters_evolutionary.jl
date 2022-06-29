@@ -25,25 +25,27 @@ end
 # ╔═╡ f99fd667-3721-4580-9ac1-dd758de66493
 function sharing_groups_model(;
 	N::Int64 = 20, #number of sharing clusters
-	max_N::Int64 = 100, #max number of sharing clusters
-	n::Int64 = 200, #population size
+	max_N::Int64 = 1000, #max number of sharing clusters
+	n::Int64 = 500, #population size
 	r::Int64 = 1, #number of agents that join/abandon clusters
 	T::Int64 = 20, #number of sub-periods in productive period
 	init_size::Int64 = 10, #initial max size of clusters (binomial distribution)
 	init_size_prob::Float64 = 0.5, #probability of cluster size
 	B::Float64 = 20.0, #mean of surplus distribution (lognormal)
-	B_var::Float64 = 0.0001, #variance of surplus distribution
+	B_var::Float64 = 0.000001, #variance of surplus distribution
 	C::Float64 = 0.2, #mean of cost distribution (lognormal)
-	C_var::Float64 = 0.0001, #variance of cost distribution
-	α_risk::Float64 = 1001.0, #alpha (# of successes - 1) for risk distribution
-	β_risk::Float64 = 1001.0, #beta (# of failures - 1) for risk distribution
+	C_var::Float64 = 0.000001, #variance of cost distribution
+	u::Float64 = 0.5, #average risk
+	#u_var::Float64 = 0.001, #risk variance
+	#α_risk::Float64 = 1001.0, #alpha (# of successes - 1) for risk distribution
+	#β_risk::Float64 = 1001.0, #beta (# of failures - 1) for risk distribution
 	δ::Float64 = 0.1, #strength of selection
-	γ::Float64 = 10.0, #steepness of sigmoid for fission probability
+	#γ::Float64 = 10.0, #steepness of sigmoid for fission probability
 	σ_small::Float64 = 0.01, #variance of inherited sharing norm after fission
 	σ_large::Float64 = 0.1, #prob of large mutation in sharing norm after fission
 	rep::Int64 = 1, #replicate number (paramscan only)
 	)
-
+	
 	model = ABM(
 		Cluster,
 		nothing,
@@ -56,7 +58,7 @@ function sharing_groups_model(;
 			:C => LogNormal(log(C), C_var),
 			:size_dist => Binomial(init_size, init_size_prob),
 			:share_dist => Beta(1, 1),
-			:risk => Beta(α_risk, β_risk),
+			:u => u,
 			:δ => δ,
 			:γ => γ,
 			:σ_small => σ_small,
@@ -74,7 +76,7 @@ function sharing_groups_model(;
 			:num_clusters_vector => Int64[],
 			:mean_cluster_size_vector => Float64[],
 			:median_cluster_size_vector => Float64[],
-			:loner_fitness => (1+δ)^(T*( α_risk/(α_risk + β_risk) )*log(B)),
+			:loner_fitness => (1+δ)^(T*u*log(B)),
 			:tick => 0,
 			:rep => rep,
 		),
@@ -112,7 +114,7 @@ function generate_fitness!(model)
 			members = Float64[]
 			#calculate individual and pooled payoff for sub-period:
 			for member in 1:(a.size) #iterate through every member of pool
-				u = rand(model.rng, model.risk)
+				u = model.u #rand(model.rng, model.risk)
 				B = rand(model.rng, model.B)
 				C = rand(model.rng, model.C)
 				toss = ( rand(model.rng) < u )
