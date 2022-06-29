@@ -5,10 +5,10 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ a8865125-d0a0-4c6a-87ac-ebb33ab42732
-begin #ADJUST NUMBER OF PROCESSES HERE FOR PARALLEL COMPUTING
-	using Distributed
-	addprocs(6)
-end
+#begin #ADJUST NUMBER OF PROCESSES HERE FOR PARALLEL COMPUTING
+#	using Distributed
+#	addprocs(6)
+#end
 
 # ╔═╡ 2a47df14-6677-4253-9460-61053e707efc
 @everywhere begin #INCLUDE MODEL CODE AND NECESSARY LIBRARIES
@@ -19,8 +19,8 @@ end
 	parameters = Dict( #ALTER THIS DICTIONARY TO DEFINE PARAMETER DISTRIBUTIONS
 	    :B => collect(2.0:2.0:40.0),
 		:C => collect(0.02:0.02:0.4),
-		:n => [100, 500, 1000],
-		:u => collect(0.01:0.01:0.99),
+		:n => [100, 250, 500],
+		:u => collect(0.05:0.05:0.95),
 		:rep => collect(1:20),
 	)
 
