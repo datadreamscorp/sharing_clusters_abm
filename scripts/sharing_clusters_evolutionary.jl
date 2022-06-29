@@ -60,7 +60,7 @@ function sharing_groups_model(;
 			:share_dist => Beta(1, 1),
 			:u => u,
 			:δ => δ,
-			:γ => γ,
+			#:γ => γ,
 			:σ_small => σ_small,
 			:σ_large => σ_large,
 			:n => n,
