@@ -17,11 +17,11 @@ end
 	using Agents, Random, Distributions, Statistics, StatsBase
 	
 	parameters = Dict( #ALTER THIS DICTIONARY TO DEFINE PARAMETER DISTRIBUTIONS
-	    :B => collect(5.0:5:40.0),
-		:C => collect(0.05:0.05:0.4),
+	    :B => collect(2.0:2.0:40.0),
+		:C => collect(0.02:0.02:0.4),
 		:n => [100, 500, 1000],
-		:u => collect(0.01:0.01:0.99)
-		:rep => collect(1:5),
+		:u => collect(0.01:0.01:0.99),
+		:rep => collect(1:20),
 	)
 
 
