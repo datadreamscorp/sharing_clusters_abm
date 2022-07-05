@@ -49,6 +49,9 @@ _, mdf = paramscan(
 			when_model = collect(0:1000:10000)
 	)
 
+using CSV
+CSV.write("sharing_clusters_data.csv", mdf)
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]

@@ -77,6 +77,7 @@ function sharing_groups_model(;
 			:mean_cluster_size_vector => Float64[],
 			:median_cluster_size_vector => Float64[],
 			:loner_fitness => (1+δ)^(T*u*log(B)),
+			:pop_fitness => 0.0,
 			:tick => 0,
 			:rep => rep,
 		),
@@ -103,6 +104,8 @@ end
 
 # ╔═╡ b8e082ae-c735-4449-87c9-28ec88191f76
 function generate_fitness!(model)
+
+	model.pop_fitness = 0.0
 	
 	for a in allagents(model) #iterate through all agents
 
@@ -134,7 +137,7 @@ function generate_fitness!(model)
 		#calculate fitness
 		a.total_fitness = sum( (1 + model.δ).^log_payoffs )
 		a.average_fitness = a.total_fitness / a.size
-		
+		model.pop_fitness += a.total_fitness
 	end
 	
 end
@@ -142,43 +145,45 @@ end
 # ╔═╡ aed2940f-7fc1-4e1d-b916-82f4bbad555c
 function growth!(model)
 
+	#function for (more) stochastic version of fission NOT USED
 	#fissfunc(fitness) = 1 / ( 1 + exp( -model.γ * (fitness - model.loner_fitness) ) )
-	
-	pop_fitness = sum( [a.total_fitness for a in allagents(model)] )
+
+	#calculate the total fitness of the population
+	#pop_fitness = sum( [a.total_fitness for a in allagents(model)] )
 	#pop_fission = sum( [fissfunc(a.average_fitness) for a in allagents(model)] )
 	
-	for a in allagents(model)
-		a.ϕ = a.total_fitness / pop_fitness
-		a.τ = -(a.ϕ - 1.0)
+	for a in allagents(model) #calculate the relative fitness of each cluster
+		a.ϕ = a.total_fitness / model.pop_fitness
+		#a.ϕ = a.total_fitness / pop_fitness
+		a.τ = -(a.ϕ - 1.0) #also calculate the probability of losing a member
+						   #this assumes a frequency-dependent advantage for clusters
 		#a.fission_prob = fissfunc(a.average_fitness) / pop_fission
 	end
 
-	recruiter = sample(
+	recruiter = sample( #sample a recruiter cluster that will grow
 		model.rng, 
 		allagents(model) |> collect, 
 		Weights( [a.ϕ for a in allagents(model)] )
 	)
 	
-	if model.current_n < model.n
+	if model.current_n < model.n #if pop is not maxed out, add one and that's it
 
-		recruiter.size += model.r
-		model.current_n += model.r
+		recruiter.size += 1
+		model.current_n += 1
 		#rand(model.rng, Binomial(model.n, model.n_prob))
 		
 	else
 		
-		loser = sample(
+		loser = sample( #if pop is maxed out, choose a loser
 			model.rng, 
 			allagents(model) |> collect, 
 			Weights( [a.τ for a in allagents(model)] )
 		)
 
-		loser.size -= model.r
-		loser_size = loser.size
-
-		recruiter.size += model.r
+		loser.size -= 1 #rip
+		recruiter.size += 1 #winrar
 		
-		if loser_size < 1
+		if loser.size < 1 #if the cluster is empty, end its misery
 			
 			kill_agent!(loser, model)
 			model.current_N -= 1
@@ -192,14 +197,8 @@ end
 
 # ╔═╡ 4f39ca71-ae53-41f9-b067-40542b1467cd
 function death_and_fission!(model)
-
-	# we want to count how many groups fissioned
-	# and then remove that amount of agents at random
-
-	#we do not consider for reproduction or fission those groups that have fitness
-	#below that of a loner and group size at or below 1
 	
-	fission_candidates = []
+	fission_candidates = [] #list of candidates for fission
 	for a in allagents(model)
 		if (a.average_fitness ≤ model.loner_fitness) & (a.size > 2)
 			push!(fission_candidates, a)
@@ -208,16 +207,18 @@ function death_and_fission!(model)
 			
 	if length(fission_candidates) > 0
 		
-		fissioned = rand(model.rng, fission_candidates)
+		fissioned = rand(model.rng, fission_candidates) #sample a cluster
 	
-		inh_sharing = clamp( rand(model.rng, Normal(fissioned.s, model.σ_small)), 0.0, 1.0 )
+		inh_sharing = clamp( rand(model.rng, Normal(fissioned.s, model.σ_small)), 0.0, 1.0 ) #inherited sharing norm
 		
-		mutated_sharing = rand(model.rng)
-		
+		mutated_sharing = rand(model.rng) #mutated sharing norm
+
+		#get the size of the new offspring sharing cluster
 		new_size = floor( rand(model.rng) * fissioned.size )
+		
 		if new_size > 0
 
-			fissioned.size -= new_size
+			fissioned.size -= new_size #members leave from fissioned cluster
 			
 			add_agent!(
 				model,
@@ -229,9 +230,9 @@ function death_and_fission!(model)
 				0.0,
 			)
 
-			model.current_N += 1
+			model.current_N += 1 #add a new cluster to our counter
 			
-			if model.current_N > model.max_N
+			if model.current_N > model.max_N #if cluster pop is maxed out, time to die
 				
 				dead = sample(
 					model.rng,
@@ -239,11 +240,11 @@ function death_and_fission!(model)
 					Weights( [-(a.ϕ - 1.0) for a in allagents(model)] )
 				)
 
-				model.current_n -= dead.size
+				model.current_n -= dead.size #remove the little ones
 
-				model.current_N -= 1
+				model.current_N -= 1 #remove the big one
 				
-				kill_agent!(dead, model)
+				kill_agent!(dead, model) #F
 
 			end
 			
